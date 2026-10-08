@@ -2,6 +2,8 @@
 
 Python library for controlling a **Valet Push Button Module (PBM)** from a Raspberry Pi using ROBOTIS DYNAMIXEL Protocol 2.0.
 
+[Valet](https://valetnet.dev/) is a plug-and-play automation tool for iOS and Android phones, powered by a Raspberry Pi. It drives a phone with real inputs (tapping, clicking, and typing over USB) and checks what is on screen with computer vision. The PBM adds physical button presses, using DYNAMIXEL servo motors.
+
 Supported motors:
 
 - XC330-T181-T

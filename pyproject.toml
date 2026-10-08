@@ -41,7 +41,7 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/tapsterbot/valet-pbm"
+Homepage = "https://valetnet.dev/"
 Source = "https://github.com/tapsterbot/valet-pbm"
 Issues = "https://github.com/tapsterbot/valet-pbm/issues"
 
