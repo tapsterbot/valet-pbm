@@ -14,7 +14,7 @@ Valet systems normally ship with the Raspberry Pi, PBM software, and DYNAMIXEL m
 ## Quick start
 
 ```python
-from valet_pbm import PBM
+from pbm import PBM
 
 pbm = PBM()
 
@@ -215,7 +215,7 @@ pbm.tap(3, 2048, 2250)
 For scripts, PBM can be used as a context manager:
 
 ```python
-from valet_pbm import PBM
+from pbm import PBM
 
 with PBM() as pbm:
     pbm.tap(
@@ -242,7 +242,16 @@ source .venv/bin/activate
 pip install -e .
 ```
 
-Once the package metadata is in place, it can also be installed directly from GitHub into another project:
+To run the tests:
+
+```bash
+make test       # unit tests, no hardware needed
+make test-hw    # end-to-end tests on a connected PBM (moves the motor)
+```
+
+`make test-hw` taps motor 1 from 2048 to 1700 by default. Override with `PBM_MOTOR_ID`, `PBM_FROM_POSITION`, `PBM_TO_POSITION`, and `PBM_DEVICE`, for example `make test-hw PBM_TO_POSITION=1800`. Run `make` to list all targets.
+
+Install directly from GitHub into another project:
 
 ```bash
 pip install git+https://github.com/tapsterbot/valet-pbm.git
@@ -256,7 +265,7 @@ pip install valet-pbm
 
 ### Raspberry Pi prerequisites
 
-On Raspberry Pi OS, install the system packages needed by `lgpio`:
+On Raspberry Pi OS, install the system packages needed to build `lgpio` before running `pip install`:
 
 ```bash
 sudo apt update

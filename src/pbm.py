@@ -122,8 +122,10 @@ class PBM:
     def _tx_end(self):
         # Wait until the PL011 has physically finished transmitting before
         # switching the external half-duplex interface back to RX.
-        self.port.ser.flush()
-        self.direction.off()
+        try:
+            self.port.ser.flush()
+        finally:
+            self.direction.off()
 
     def _start_rx_timeout(self):
         # Start the receive window only after TX has completed and the
@@ -136,10 +138,12 @@ class PBM:
 
     def _write1_once(self, motor_id, address, value):
         self._tx_begin()
-        result = self.packet.write1ByteTxOnly(
-            self.port, motor_id, address, value
-        )
-        self._tx_end()
+        try:
+            result = self.packet.write1ByteTxOnly(
+                self.port, motor_id, address, value
+            )
+        finally:
+            self._tx_end()
 
         if result != COMM_SUCCESS:
             return False
@@ -150,10 +154,12 @@ class PBM:
 
     def _write4_once(self, motor_id, address, value):
         self._tx_begin()
-        result = self.packet.write4ByteTxOnly(
-            self.port, motor_id, address, value
-        )
-        self._tx_end()
+        try:
+            result = self.packet.write4ByteTxOnly(
+                self.port, motor_id, address, value
+            )
+        finally:
+            self._tx_end()
 
         if result != COMM_SUCCESS:
             return False
@@ -228,11 +234,12 @@ class PBM:
             # readTx() itself starts the SDK's packet-length timeout before
             # returning. PBM has not switched the external interface to RX
             # yet at that point, so we deliberately reset the timeout below.
-            result = self.packet.readTx(
-                self.port, motor_id, address, size
-            )
-
-            self._tx_end()
+            try:
+                result = self.packet.readTx(
+                    self.port, motor_id, address, size
+                )
+            finally:
+                self._tx_end()
 
             if result != COMM_SUCCESS:
                 last_result = result
@@ -317,8 +324,10 @@ class PBM:
         txpacket[7] = 1
 
         self._tx_begin()
-        result = self.packet.txPacket(self.port, txpacket)
-        self._tx_end()
+        try:
+            result = self.packet.txPacket(self.port, txpacket)
+        finally:
+            self._tx_end()
 
         if result != COMM_SUCCESS:
             return False
