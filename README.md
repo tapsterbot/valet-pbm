@@ -196,7 +196,7 @@ Contact detection is based primarily on **position progress**:
 
 Effort is recorded as telemetry, but a current/load spike by itself does not trigger contact. Normal acceleration can produce a high `peak_effort` even during an unobstructed move.
 
-The detector can be tuned through the `PBM(...)` constructor if needed.
+The detector can be tuned through the `PBM(...)` constructor if needed (see **Constructor options**).
 
 ## Multiple motors
 
@@ -228,6 +228,36 @@ with PBM() as pbm:
 ```
 
 This closes the serial port and GPIO resources automatically.
+
+## Constructor options
+
+`PBM()` works with the defaults on an assembled Valet. Every option is a keyword argument to the constructor and applies to all calls made through that object:
+
+```python
+with PBM(retry_delay=0.01) as pbm:
+    pbm.tap(1, from_position=2048, to_position=1700)
+```
+
+| Option | Default | What it does |
+|---|---|---|
+| `device` | `"/dev/serial0"` | Serial port for the DYNAMIXEL bus. |
+| `baudrate` | `3_000_000` | Bus speed. Must match the motors. |
+| `direction_pin` | `18` | GPIO pin that switches the half-duplex bus between transmit and receive. |
+| `retries` | `3` | Attempts for each read or write, including the first. |
+| `response_timeout_ms` | `10` | How long to wait for a motor's status packet before treating the attempt as lost. |
+| `retry_delay` | `0.001` | Seconds to wait after a failed attempt before trying again. |
+| `poll_interval` | `0.005` | Seconds between position checks while `move(wait=True)` or `tap()` waits for the motor. |
+| `contact_samples` | `2` | Consecutive low-progress samples needed before contact is reported. |
+| `contact_ignore_time` | `0.04` | Seconds at the start of a move during which contact is never reported. |
+| `contact_window` | `0.04` | Seconds of position history used to measure progress. |
+| `contact_min_progress` | `20` | Position units the motor must move across the window to count as still moving. |
+| `contact_min_travel` | `10` | Position units the motor must travel from its start before contact can be reported. |
+
+### Retries
+
+A lost or corrupted status packet is retried, so an occasional dropped packet does not fail a command. If every attempt fails, the command raises `RuntimeError`. A `tap()` makes many reads while it watches the motor, so one read that fails every attempt aborts the tap. PBM still attempts the release move.
+
+When packets go missing in bursts, for example while the Raspberry Pi is busy streaming camera video, retries 1 ms apart can all land in the same burst. Raising `retry_delay` to around `0.01` spreads them out. The delay only adds time when an attempt has actually failed.
 
 ## Install and hardware setup
 
