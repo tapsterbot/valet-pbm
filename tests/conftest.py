@@ -237,6 +237,9 @@ class FakeSerial:
         self.events = events
         self.flush_exception = None
 
+    def fileno(self):
+        return 3
+
     def flush(self):
         self.events.append("flush")
         exc, self.flush_exception = self.flush_exception, None
@@ -302,6 +305,21 @@ class Bus:
         self.ports = []
         self.directions = []
         self.atexit_callbacks = []
+        # UART drain fault injection: polls that report TX still busy, and
+        # an exception raised by the drain ioctl (e.g. unsupported driver).
+        self.tx_busy_polls = 0
+        self.tx_idle_exception = None
+
+    def tx_idle(self, fd):
+        if self.tx_idle_exception is not None:
+            raise self.tx_idle_exception
+        if self.tx_busy_polls:
+            self.tx_busy_polls -= 1
+            self.clock.now += 0.001
+            self.events.append("busy")
+            return False
+        self.events.append("drain")
+        return True
 
     def port_factory(self, device):
         port = FakePortHandler(device, self.events)
@@ -326,6 +344,7 @@ def bus(monkeypatch):
         pbm_module, "Protocol2PacketHandler", lambda: bus.packet
     )
     monkeypatch.setattr(pbm_module, "time", bus.clock)
+    monkeypatch.setattr(pbm_module, "_tx_idle", bus.tx_idle)
     monkeypatch.setattr(
         pbm_module,
         "atexit",

@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import atexit
+import fcntl
+import struct
+import termios
 import time
 from collections import deque
 from dataclasses import dataclass
@@ -18,6 +21,22 @@ ADDR_LED = 65
 ADDR_GOAL_POSITION = 116
 ADDR_PRESENT_EFFORT = 126
 ADDR_PRESENT_POSITION = 132
+
+# Longest we busy-wait for the UART to drain before falling back to tcdrain().
+# A PBM packet is at most ~20 bytes, well under 100 us at 3 Mbps.
+TX_DRAIN_TIMEOUT = 0.005
+
+
+def _tx_idle(fd):
+    """True once the kernel TX buffer and the UART shift register are empty."""
+    queued = struct.unpack("i", fcntl.ioctl(fd, termios.TIOCOUTQ, bytes(4)))[0]
+    if queued:
+        return False
+
+    lsr = struct.unpack(
+        "I", fcntl.ioctl(fd, termios.TIOCSERGETLSR, bytes(4))
+    )[0]
+    return bool(lsr & termios.TIOCSER_TEMT)
 
 
 @dataclass(frozen=True)
@@ -123,9 +142,27 @@ class PBM:
         # Wait until the PL011 has physically finished transmitting before
         # switching the external half-duplex interface back to RX.
         try:
-            self.port.ser.flush()
+            self._wait_tx_done()
         finally:
             self.direction.off()
+
+    def _wait_tx_done(self):
+        # Poll the UART rather than rely on ser.flush() (tcdrain). If the
+        # UART is still sending when tcdrain() checks, the kernel sleeps for
+        # at least one scheduler tick (4 ms at HZ=250), far longer than the
+        # motor's 508 us Return Delay Time, and the status packet is lost.
+        deadline = time.monotonic() + TX_DRAIN_TIMEOUT
+
+        try:
+            fd = self.port.ser.fileno()
+            while time.monotonic() < deadline:
+                if _tx_idle(fd):
+                    return
+        except OSError:
+            pass
+
+        # ioctl unsupported or drain timed out: fall back to tcdrain().
+        self.port.ser.flush()
 
     def _start_rx_timeout(self):
         # Start the receive window only after TX has completed and the

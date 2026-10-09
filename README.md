@@ -350,13 +350,9 @@ PBM reads the DYNAMIXEL Model Number automatically.
 
 Valet PBM uses GPIO18 for half-duplex direction control by default.
 
-The transmit sequence calls:
+After each transmit, PBM busy-polls the UART (`TIOCOUTQ` and `TIOCSERGETLSR`) until the last bit has left the shift register, then switches the external bus interface back to receive mode. This takes tens of microseconds.
 
-```python
-port.ser.flush()
-```
-
-before switching the external bus interface back to receive mode.
+PBM does not rely on `port.ser.flush()` (`tcdrain`) for this. If the UART is still sending when `tcdrain` checks, the kernel sleeps for at least one scheduler tick (4 ms at the default `HZ=250`). That is far longer than the motor's 508 us Return Delay Time, so the status packet is lost. PBM falls back to `flush()` only if the polling ioctls are unsupported or the drain takes longer than 5 ms.
 
 PBM starts its receive timeout after TX has completed and the half-duplex interface has switched to RX.
 

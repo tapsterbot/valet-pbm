@@ -103,9 +103,9 @@ def test_ping_switches_to_rx_before_receive_timeout(bus, motor, pbm):
 
     pbm.ping(1)
 
-    # TX completes (flush) before the direction pin returns to RX, and the
-    # receive window starts only after that.
-    assert bus.events == ["dir_tx", "tx", "flush", "dir_rx", "rx"]
+    # TX completes (UART drained) before the direction pin returns to RX,
+    # and the receive window starts only after that.
+    assert bus.events == ["dir_tx", "tx", "drain", "dir_rx", "rx"]
     assert bus.ports[0].timeouts == [10]
 
 
@@ -143,7 +143,36 @@ def test_direction_returns_to_rx_when_tx_raises(bus, motor, pbm, operation):
     assert bus.events[-1] == "dir_rx"
 
 
+def test_tx_drain_polls_until_uart_idle(bus, motor, pbm):
+    bus.tx_busy_polls = 2
+    bus.events.clear()
+
+    assert pbm.ping(1) is True
+    assert bus.events == [
+        "dir_tx", "tx", "busy", "busy", "drain", "dir_rx", "rx"
+    ]
+
+
+def test_tx_drain_falls_back_to_flush_when_ioctl_unsupported(bus, motor, pbm):
+    bus.tx_idle_exception = OSError("inappropriate ioctl for device")
+    bus.events.clear()
+
+    assert pbm.ping(1) is True
+    assert bus.events == ["dir_tx", "tx", "flush", "dir_rx", "rx"]
+
+
+def test_tx_drain_falls_back_to_flush_on_timeout(bus, motor, pbm):
+    bus.tx_busy_polls = 1000
+    bus.events.clear()
+
+    pbm.ping(1)
+
+    assert bus.events.count("busy") == 5
+    assert bus.events[-3:] == ["flush", "dir_rx", "rx"]
+
+
 def test_direction_returns_to_rx_when_flush_raises(bus, motor, pbm):
+    bus.tx_idle_exception = OSError("inappropriate ioctl for device")
     bus.ports[0].ser.flush_exception = OSError("flush failed")
 
     with pytest.raises(OSError):
